@@ -1,5 +1,7 @@
 const db = require('../models/sql');
+const { Op } = require('sequelize');
 const { successResponse, errorResponse } = require('../utils/response');
+const { getPaginationParams, buildPaginationMeta, getSortParams } = require('../utils/pagination');
 
 function buildVendorPayload(vendor) {
   return {
@@ -58,14 +60,40 @@ async function createVendor(req, res, next) {
 async function listVendorsByEvent(req, res, next) {
   try {
     const eventId = req.params.id;
-    const vendors = await db.Vendor.findAll({
-      where: { event_id: eventId },
-      order: [['created_at', 'DESC']],
+    const { page, perPage, offset, limit } = getPaginationParams(req.query);
+    const { sortBy, order } = getSortParams(req.query, {
+      allowedSortBy: ['created_at', 'nama_vendor', 'status'],
+      defaultSortBy: 'created_at',
+      defaultOrder: 'DESC',
+    });
+    const where = { event_id: eventId };
+
+    if (req.query.status) {
+      where.status = req.query.status;
+    }
+
+    if (req.query.kategori) {
+      where.kategori = req.query.kategori;
+    }
+
+    if (req.query.q) {
+      where[Op.or] = [
+        { nama_vendor: { [Op.like]: `%${req.query.q}%` } },
+        { kontak_person: { [Op.like]: `%${req.query.q}%` } },
+      ];
+    }
+
+    const { rows, count } = await db.Vendor.findAndCountAll({
+      where,
+      order: [[sortBy, order]],
+      offset,
+      limit,
     });
 
     return successResponse(res, {
       message: 'Daftar vendor berhasil diambil',
-      data: { vendors: vendors.map(buildVendorPayload) },
+      data: { vendors: rows.map(buildVendorPayload) },
+      meta: buildPaginationMeta({ page, perPage, total: count }),
       statusCode: 200,
     });
   } catch (error) {

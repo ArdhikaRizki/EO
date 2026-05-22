@@ -1,5 +1,7 @@
 const db = require('../models/sql');
+const { Op } = require('sequelize');
 const { successResponse, errorResponse } = require('../utils/response');
+const { getPaginationParams, buildPaginationMeta, getSortParams } = require('../utils/pagination');
 
 const ALLOWED_ROLES = ['admin', 'ketua', 'staf'];
 
@@ -20,14 +22,45 @@ function sanitizeUser(user) {
 
 async function listUsers(req, res, next) {
   try {
-    const users = await db.User.findAll({
+    const { page, perPage, offset, limit } = getPaginationParams(req.query);
+    const { sortBy, order } = getSortParams(req.query, {
+      allowedSortBy: ['created_at', 'name', 'email', 'role'],
+      defaultSortBy: 'created_at',
+      defaultOrder: 'DESC',
+    });
+    const where = {};
+
+    if (req.query.role) {
+      where.role = req.query.role;
+    }
+
+    if (req.query.divisi) {
+      where.divisi = req.query.divisi;
+    }
+
+    if (req.query.is_active !== undefined) {
+      where.is_active = req.query.is_active;
+    }
+
+    if (req.query.q) {
+      where[Op.or] = [
+        { name: { [Op.like]: `%${req.query.q}%` } },
+        { email: { [Op.like]: `%${req.query.q}%` } },
+      ];
+    }
+
+    const { rows, count } = await db.User.findAndCountAll({
       attributes: { exclude: ['password_hash'] },
-      order: [['created_at', 'DESC']],
+      where,
+      order: [[sortBy, order]],
+      offset,
+      limit,
     });
 
     return successResponse(res, {
       message: 'Daftar user berhasil diambil',
-      data: { users: users.map(sanitizeUser) },
+      data: { users: rows.map(sanitizeUser) },
+      meta: buildPaginationMeta({ page, perPage, total: count }),
       statusCode: 200,
     });
   } catch (error) {

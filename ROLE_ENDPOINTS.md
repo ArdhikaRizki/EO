@@ -59,8 +59,8 @@ Content-Type: application/json
 | POST | `/events/:id/vendors` | `admin`, `ketua` |
 | GET | `/events/:id/vendors` | Auth |
 | GET | `/vendors/:id` | Auth |
-| PUT | `/vendors/:id` | Auth |
-| DELETE | `/vendors/:id` | Auth |
+| PUT | `/vendors/:id` | `admin`, `ketua` |
+| DELETE | `/vendors/:id` | `admin`, `ketua` |
 
 ### Rundown
 
@@ -68,8 +68,8 @@ Content-Type: application/json
 |---|---|---|
 | POST | `/events/:id/rundowns` | `admin`, `ketua` |
 | GET | `/events/:id/rundowns` | Auth |
-| PUT | `/rundowns/:id` | Auth |
-| DELETE | `/rundowns/:id` | Auth |
+| PUT | `/rundowns/:id` | `admin`, `ketua` |
+| DELETE | `/rundowns/:id` | `admin`, `ketua` |
 
 ### Tugas
 
@@ -79,8 +79,8 @@ Content-Type: application/json
 | GET | `/events/:id/tugas` | Auth |
 | GET | `/tugas/:id` | Auth |
 | PUT | `/tugas/:id` | Auth |
-| PATCH | `/tugas/:id/status` | Auth |
-| DELETE | `/tugas/:id` | Auth |
+| PATCH | `/tugas/:id/status` | Owner / `admin` |
+| DELETE | `/tugas/:id` | `admin`, `ketua` |
 
 ### Laporan
 
@@ -88,6 +88,23 @@ Content-Type: application/json
 |---|---|---|
 | POST | `/events/:id/laporan` | `admin`, `ketua` |
 | GET | `/events/:id/laporan` | `admin`, `ketua` |
+
+### Realtime / NoSQL
+
+| Method | Endpoint | Akses |
+|---|---|---|
+| POST | `/realtime/checklist` | Auth |
+| GET | `/realtime/events/:eventId/checklist` | `admin`, `ketua` |
+| PATCH | `/realtime/checklist/:id/status` | Auth |
+| POST | `/realtime/chat/messages` | Auth |
+| GET | `/realtime/events/:eventId/chat` | Auth |
+| POST | `/realtime/notifikasi` | `admin`, `ketua` |
+| GET | `/realtime/notifikasi/me` | Auth |
+| PATCH | `/realtime/notifikasi/:id/read` | Auth |
+| POST | `/realtime/rundown-changes` | `admin`, `ketua` |
+| GET | `/realtime/events/:eventId/rundown-changes` | `admin`, `ketua` |
+| POST | `/realtime/logs` | Auth |
+| GET | `/realtime/events/:eventId/logs` | `admin`, `ketua` |
 
 ### Upload
 
@@ -255,4 +272,6 @@ file: <binary file>
 - Kalau role user diubah di database, token JWT lama masih membawa role lama sampai user login ulang atau token baru diterbitkan.
 - Sisi client sebaiknya ambil ulang data user dari `GET /auth/me` setelah login, dan lakukan logout/login ulang jika ada perubahan role atau status akun.
 - `PUT /users/:id` hanya bisa diakses oleh user sendiri atau admin (owner-only).
-- `PATCH /tugas/:id/status` hanya bisa diakses oleh user yang di-assign tugas atau admin (owner-only untuk status update).
+- `PUT /users/:id` saat ini dibuka untuk `admin` dan `ketua`.
+- `PATCH /tugas/:id/status` hanya bisa diakses oleh user yang di-assign tugas atau admin.
+- Untuk query list, backend mendukung `page`, `per_page`, `q`, `sort_by`, `order`, dan filter spesifik per resource.

@@ -2,6 +2,18 @@ const router = require('express').Router();
 
 const authMiddleware = require('../../middleware/authMiddleware');
 const roleMiddleware = require('../../middleware/roleMiddleware');
+const { validate } = require('../../middleware/validationMiddleware');
+const { eventIdParamSchema } = require('../../validators/commonSchemas');
+const { vendorCreateSchema } = require('../../validators/vendorSchemas');
+const { rundownCreateSchema } = require('../../validators/rundownSchemas');
+const { tugasCreateSchema } = require('../../validators/tugasSchemas');
+const { laporanCreateSchema } = require('../../validators/laporanSchemas');
+const {
+	vendorListQuerySchema,
+	rundownListQuerySchema,
+	tugasListQuerySchema,
+	laporanListQuerySchema,
+} = require('../../validators/listQuerySchemas');
 
 const v1Routes = require('express').Router();
 
@@ -13,6 +25,7 @@ const rundownRoutes = require('./rundownRoutes');
 const tugasRoutes = require('./tugasRoutes');
 const laporanRoutes = require('./laporanRoutes');
 const uploadRoutes = require('./uploadRoutes');
+const realtimeRoutes = require('./realtimeRoutes');
 
 const vendorController = require('../../controllers/vendorController');
 const rundownController = require('../../controllers/rundownController');
@@ -28,17 +41,18 @@ v1Routes.use('/rundowns', authMiddleware, rundownRoutes);
 v1Routes.use('/tugas', authMiddleware, tugasRoutes);
 v1Routes.use('/laporan', authMiddleware, laporanRoutes);
 v1Routes.use('/upload', authMiddleware, uploadRoutes);
+v1Routes.use('/realtime', authMiddleware, realtimeRoutes);
 
-v1Routes.post('/events/:id/vendors', authMiddleware, roleMiddleware(['admin', 'ketua']), vendorController.createVendor);
-v1Routes.get('/events/:id/vendors', authMiddleware, vendorController.listVendorsByEvent);
+v1Routes.post('/events/:id/vendors', authMiddleware, roleMiddleware(['admin', 'ketua']), validate(eventIdParamSchema, 'params'), validate(vendorCreateSchema), vendorController.createVendor);
+v1Routes.get('/events/:id/vendors', authMiddleware, validate(eventIdParamSchema, 'params'), validate(vendorListQuerySchema, 'query'), vendorController.listVendorsByEvent);
 
-v1Routes.post('/events/:id/rundowns', authMiddleware, roleMiddleware(['admin', 'ketua']), rundownController.createRundown);
-v1Routes.get('/events/:id/rundowns', authMiddleware, rundownController.listRundownsByEvent);
+v1Routes.post('/events/:id/rundowns', authMiddleware, roleMiddleware(['admin', 'ketua']), validate(eventIdParamSchema, 'params'), validate(rundownCreateSchema), rundownController.createRundown);
+v1Routes.get('/events/:id/rundowns', authMiddleware, validate(eventIdParamSchema, 'params'), validate(rundownListQuerySchema, 'query'), rundownController.listRundownsByEvent);
 
-v1Routes.post('/events/:id/tugas', authMiddleware, roleMiddleware(['admin', 'ketua']), tugasController.createTugas);
-v1Routes.get('/events/:id/tugas', authMiddleware, tugasController.listTugasByEvent);
+v1Routes.post('/events/:id/tugas', authMiddleware, roleMiddleware(['admin', 'ketua']), validate(eventIdParamSchema, 'params'), validate(tugasCreateSchema), tugasController.createTugas);
+v1Routes.get('/events/:id/tugas', authMiddleware, validate(eventIdParamSchema, 'params'), validate(tugasListQuerySchema, 'query'), tugasController.listTugasByEvent);
 
-v1Routes.post('/events/:id/laporan', authMiddleware, roleMiddleware(['admin', 'ketua']), laporanController.createLaporan);
-v1Routes.get('/events/:id/laporan', authMiddleware, roleMiddleware(['admin', 'ketua']), laporanController.listLaporanByEvent);
+v1Routes.post('/events/:id/laporan', authMiddleware, roleMiddleware(['admin', 'ketua']), validate(eventIdParamSchema, 'params'), validate(laporanCreateSchema), laporanController.createLaporan);
+v1Routes.get('/events/:id/laporan', authMiddleware, roleMiddleware(['admin', 'ketua']), validate(eventIdParamSchema, 'params'), validate(laporanListQuerySchema, 'query'), laporanController.listLaporanByEvent);
 
 module.exports = v1Routes;

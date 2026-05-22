@@ -1,5 +1,7 @@
 const db = require('../models/sql');
+const { Op } = require('sequelize');
 const { successResponse, errorResponse } = require('../utils/response');
+const { getPaginationParams, buildPaginationMeta, getSortParams } = require('../utils/pagination');
 
 function buildRundownPayload(rundown) {
   return {
@@ -66,18 +68,46 @@ async function createRundown(req, res, next) {
 async function listRundownsByEvent(req, res, next) {
   try {
     const eventId = req.params.id;
-    const rundowns = await db.Rundown.findAll({
-      where: { event_id: eventId },
-      order: [['urutan', 'ASC']],
+    const { page, perPage, offset, limit } = getPaginationParams(req.query);
+    const { sortBy, order } = getSortParams(req.query, {
+      allowedSortBy: ['urutan', 'created_at', 'waktu_mulai', 'judul_sesi'],
+      defaultSortBy: 'urutan',
+      defaultOrder: 'ASC',
+    });
+    const where = { event_id: eventId };
+
+    if (req.query.status) {
+      where.status = req.query.status;
+    }
+
+    if (req.query.pic_id) {
+      where.pic_id = req.query.pic_id;
+    }
+
+    if (req.query.vendor_id) {
+      where.vendor_id = req.query.vendor_id;
+    }
+
+    if (req.query.q) {
+      where.judul_sesi = { [Op.like]: `%${req.query.q}%` };
+    }
+
+    const { rows, count } = await db.Rundown.findAndCountAll({
+      where,
+      order: [[sortBy, order]],
       include: [
         { model: db.User, as: 'pic', attributes: ['id', 'name'] },
         { model: db.Vendor, as: 'vendor', attributes: ['id', 'nama_vendor'] },
       ],
+      offset,
+      limit,
+      distinct: true,
     });
 
     return successResponse(res, {
       message: 'Daftar rundown berhasil diambil',
-      data: { rundowns: rundowns.map(buildRundownPayload) },
+      data: { rundowns: rows.map(buildRundownPayload) },
+      meta: buildPaginationMeta({ page, perPage, total: count }),
       statusCode: 200,
     });
   } catch (error) {

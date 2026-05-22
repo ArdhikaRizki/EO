@@ -1,5 +1,7 @@
 const db = require('../models/sql');
+const { Op } = require('sequelize');
 const { successResponse, errorResponse } = require('../utils/response');
+const { getPaginationParams, buildPaginationMeta, getSortParams } = require('../utils/pagination');
 
 function buildEventPayload(event) {
   return {
@@ -63,14 +65,52 @@ async function createEvent(req, res, next) {
 
 async function listEvents(req, res, next) {
   try {
-    const events = await db.Event.findAll({
-      order: [['created_at', 'DESC']],
+    const { page, perPage, offset, limit } = getPaginationParams(req.query);
+    const { sortBy, order } = getSortParams(req.query, {
+      allowedSortBy: ['created_at', 'tanggal_mulai', 'tanggal_selesai', 'nama_event'],
+      defaultSortBy: 'created_at',
+      defaultOrder: 'DESC',
+    });
+    const where = {};
+
+    if (req.query.status) {
+      where.status = req.query.status;
+    }
+
+    if (req.query.ketua_id) {
+      where.ketua_id = req.query.ketua_id;
+    }
+
+    if (req.query.tanggal_mulai_from || req.query.tanggal_mulai_to) {
+      where.tanggal_mulai = {};
+      if (req.query.tanggal_mulai_from) {
+        where.tanggal_mulai[Op.gte] = req.query.tanggal_mulai_from;
+      }
+      if (req.query.tanggal_mulai_to) {
+        where.tanggal_mulai[Op.lte] = req.query.tanggal_mulai_to;
+      }
+    }
+
+    if (req.query.q) {
+      where[Op.or] = [
+        { nama_event: { [Op.like]: `%${req.query.q}%` } },
+        { lokasi: { [Op.like]: `%${req.query.q}%` } },
+      ];
+    }
+
+    const { rows, count } = await db.Event.findAndCountAll({
+      where,
+      order: [[sortBy, order]],
       include: [{ model: db.User, as: 'ketua', attributes: ['id', 'name', 'email', 'role'] }],
+      offset,
+      limit,
+      distinct: true,
     });
 
     return successResponse(res, {
       message: 'Daftar event berhasil diambil',
-      data: { events: events.map(buildEventPayload) },
+      data: { events: rows.map(buildEventPayload) },
+      meta: buildPaginationMeta({ page, perPage, total: count }),
       statusCode: 200,
     });
   } catch (error) {

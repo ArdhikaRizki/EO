@@ -1,5 +1,7 @@
 const db = require('../models/sql');
+const { Op } = require('sequelize');
 const { successResponse, errorResponse } = require('../utils/response');
+const { getPaginationParams, buildPaginationMeta, getSortParams } = require('../utils/pagination');
 
 function buildLaporanPayload(laporan) {
   return {
@@ -56,15 +58,48 @@ async function createLaporan(req, res, next) {
 async function listLaporanByEvent(req, res, next) {
   try {
     const eventId = req.params.id;
-    const laporan = await db.LaporanKetua.findAll({
-      where: { event_id: eventId },
-      order: [['created_at', 'DESC']],
+    const { page, perPage, offset, limit } = getPaginationParams(req.query);
+    const { sortBy, order } = getSortParams(req.query, {
+      allowedSortBy: ['created_at', 'tanggal', 'judul'],
+      defaultSortBy: 'created_at',
+      defaultOrder: 'DESC',
+    });
+    const where = { event_id: eventId };
+
+    if (req.query.ketua_id) {
+      where.ketua_id = req.query.ketua_id;
+    }
+
+    if (req.query.tanggal_from || req.query.tanggal_to) {
+      where.tanggal = {};
+      if (req.query.tanggal_from) {
+        where.tanggal[Op.gte] = req.query.tanggal_from;
+      }
+      if (req.query.tanggal_to) {
+        where.tanggal[Op.lte] = req.query.tanggal_to;
+      }
+    }
+
+    if (req.query.q) {
+      where[Op.or] = [
+        { judul: { [Op.like]: `%${req.query.q}%` } },
+        { konten: { [Op.like]: `%${req.query.q}%` } },
+      ];
+    }
+
+    const { rows, count } = await db.LaporanKetua.findAndCountAll({
+      where,
+      order: [[sortBy, order]],
       include: [{ model: db.User, as: 'ketua', attributes: ['id', 'name', 'email'] }],
+      offset,
+      limit,
+      distinct: true,
     });
 
     return successResponse(res, {
       message: 'Daftar laporan berhasil diambil',
-      data: { laporan: laporan.map(buildLaporanPayload) },
+      data: { laporan: rows.map(buildLaporanPayload) },
+      meta: buildPaginationMeta({ page, perPage, total: count }),
       statusCode: 200,
     });
   } catch (error) {
