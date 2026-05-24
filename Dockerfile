@@ -39,4 +39,4 @@ RUN chmod +x entrypoint.sh
 
 # Entrypoint script akan jalankan migration LALU start server
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "/app/entrypoint.sh"]
+CMD ["sh", "entrypoint.sh"]

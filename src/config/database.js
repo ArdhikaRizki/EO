@@ -16,12 +16,6 @@ module.exports = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT || 3306,
     dialect: process.env.DB_DIALECT || 'mysql',
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false, // Wajib untuk Cloud SQL
-      },
-    },
-    logging: false, // Matikan log SQL di production
+    logging: false,
   },
 };
