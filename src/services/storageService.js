@@ -28,21 +28,36 @@ function sanitizeFilename(filename = 'file') {
   return `${base || 'file'}${ext}`;
 }
 
-function buildPublicUrl(bucketName, objectPath) {
-  const encodedPath = objectPath
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
-
-  return `https://storage.googleapis.com/${bucketName}/${encodedPath}`;
-}
-
 function ensureGcsConfigured() {
   if (!process.env.GCS_BUCKET_NAME) {
     const error = new Error('GCS_BUCKET_NAME belum dikonfigurasi');
     error.statusCode = 500;
     throw error;
   }
+}
+
+/**
+ * Generate Signed URL untuk file yang sudah ada di GCS.
+ * URL berlaku sementara (default 7 hari = 10080 menit).
+ * Bekerja meski bucket punya Public Access Prevention aktif.
+ */
+async function getSignedUrl(objectPath, expiresInMinutes = null) {
+  ensureGcsConfigured();
+
+  const bucketName = process.env.GCS_BUCKET_NAME;
+  const minutes =
+    expiresInMinutes ||
+    parseInt(process.env.GCS_SIGNED_URL_EXPIRES || '10080', 10);
+
+  const blob = getStorageClient().bucket(bucketName).file(objectPath);
+
+  const [signedUrl] = await blob.getSignedUrl({
+    version: 'v4',
+    action: 'read',
+    expires: Date.now() + minutes * 60 * 1000,
+  });
+
+  return signedUrl;
 }
 
 async function uploadFile(file, options = {}) {
@@ -58,17 +73,18 @@ async function uploadFile(file, options = {}) {
   const folder = sanitizeFolder(options.folder || process.env.GCS_UPLOAD_FOLDER || 'misc');
   const timestamp = Date.now();
   const filename = sanitizeFilename(file.originalname);
-  const objectPath = folder ? `${folder}/${timestamp}-${filename}` : `${timestamp}-${filename}`;
+  const objectPath = folder
+    ? `${folder}/${timestamp}-${filename}`
+    : `${timestamp}-${filename}`;
 
   const bucket = getStorageClient().bucket(bucketName);
   const blob = bucket.file(objectPath);
 
+  // Upload file ke GCS
   await new Promise((resolve, reject) => {
     const stream = blob.createWriteStream({
       resumable: false,
-      metadata: {
-        contentType: file.mimetype,
-      },
+      metadata: { contentType: file.mimetype },
     });
 
     stream.on('error', reject);
@@ -76,10 +92,9 @@ async function uploadFile(file, options = {}) {
     stream.end(file.buffer);
   });
 
-  const makePublic = process.env.GCS_MAKE_PUBLIC === 'true';
-  if (makePublic) {
-    await blob.makePublic();
-  }
+  // Generate Signed URL — tidak perlu makePublic(), kompatibel dengan
+  // bucket yang mengaktifkan "Public Access Prevention"
+  const signedUrl = await getSignedUrl(objectPath);
 
   return {
     bucket: bucketName,
@@ -88,10 +103,10 @@ async function uploadFile(file, options = {}) {
     originalname: file.originalname,
     mimetype: file.mimetype,
     size: file.size,
-    url: buildPublicUrl(bucketName, objectPath),
+    url: signedUrl,
     gcs_uri: `gs://${bucketName}/${objectPath}`,
-    is_public: makePublic,
+    is_public: false,
   };
 }
 
-module.exports = { uploadFile };
+module.exports = { uploadFile, getSignedUrl };

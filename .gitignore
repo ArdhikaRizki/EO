@@ -16,8 +16,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # Sequelize
-migrations/*.js
-seeders/*.js
+# JANGAN exclude migrations/ dan seeders/ — file ini wajib ada di Git & Docker!
+# migrations/*.js  <-- jangan uncomment ini
+# seeders/*.js     <-- jangan uncomment ini
 
 # IDE
 .vscode/
@@ -33,6 +34,7 @@ build/
 
 # Cloud credentials
 service-account.json
+serviceAccount.json
 
 # Temporary files
 tmp/
